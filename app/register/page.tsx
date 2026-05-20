@@ -3,42 +3,47 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { signIn } from 'next-auth/react'
+import { toast } from 'sonner'
 
 export default function RegisterPage() {
   const router = useRouter()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    setError('')
 
-    const res = await fetch('/api/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password }),
-    })
+    try {
+      const res = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password }),
+      })
 
-    const data = await res.json()
+      const data = await res.json()
 
-    if (!res.ok) {
-      setError(data.error || 'Registration failed')
+      if (!res.ok) {
+        toast.error(data.error || 'Registration failed')
+        return
+      }
+
+      toast.success('Account created successfully!')
+      await signIn('credentials', { email, password, redirect: false })
+      router.push('/dashboard')
+      router.refresh()
+    } catch (error) {
+      toast.error('Something went wrong. Please try again.')
+    } finally {
       setLoading(false)
-      return
     }
-
-    await signIn('credentials', { email, password, redirect: false })
-    router.push('/dashboard')
-    router.refresh()
   }
 
   return (
     <div className="min-h-screen bg-stone-50 flex flex-col">
-      <nav className="flex items-center px-8 py-5 border-b border-stone-200 bg-white">
+      <nav className="flex items-center px-4 sm:px-8 py-5 border-b border-stone-200 bg-white">
         <Link href="/" className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center">
             <span className="text-white text-sm font-semibold">M</span>
@@ -47,18 +52,12 @@ export default function RegisterPage() {
         </Link>
       </nav>
 
-      <div className="flex-1 flex items-center justify-center px-6 py-12">
+      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 py-12">
         <div className="w-full max-w-sm">
           <h1 className="text-2xl font-semibold text-stone-900 mb-2">Create your vault</h1>
           <p className="text-stone-500 text-sm mb-8">Start managing your health records securely</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
-                {error}
-              </div>
-            )}
-
             <div>
               <label className="block text-sm font-medium text-stone-700 mb-1.5">Full name</label>
               <input

@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
 import { formatDate } from '@/lib/utils'
+import { toast } from 'sonner'
 
 type DocType = 'LAB_REPORT' | 'PRESCRIPTION' | 'IMAGING' | 'DISCHARGE_SUMMARY' | 'INSURANCE' | 'OTHER'
 
@@ -36,9 +37,7 @@ export default function DocumentsPage() {
   const [fileBase64, setFileBase64] = useState('')
   const [fileMime, setFileMime] = useState('image/jpeg')
   const [filePreview, setFilePreview] = useState('')
-  const [fileName, setFileName] = useState('')
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
   const [summarising, setSummarising] = useState<string | null>(null)
   const [viewing, setViewing] = useState<Document | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -47,10 +46,11 @@ export default function DocumentsPage() {
   async function load() {
     try {
       const res = await fetch('/api/documents')
+      if (!res.ok) throw new Error('Failed to load documents')
       const data = await res.json()
       setDocuments(data)
-    } catch (e) {
-      console.error(e)
+    } catch (error) {
+      toast.error('Failed to load documents')
     } finally {
       setLoading(false)
     }
@@ -62,10 +62,8 @@ export default function DocumentsPage() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    setFileName(file.name)
     setFileMime(file.type || 'image/jpeg')
 
-    // Auto set title
     if (!form.title) {
       setForm(f => ({ ...f, title: file.name.replace(/\.[^.]+$/, '') }))
     }
@@ -73,100 +71,124 @@ export default function DocumentsPage() {
     const reader = new FileReader()
     reader.onload = (ev) => {
       const result = ev.target?.result as string
-      // result is "data:image/jpeg;base64,XXXX" — we need just the base64 part
       const base64 = result.split(',')[1]
       setFileBase64(base64)
-      setFilePreview(result) // full data URL for preview
+      setFilePreview(result)
     }
     reader.readAsDataURL(file)
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
-    if (!fileBase64) { setError('Please select an image file'); return }
+    if (!fileBase64) {
+      toast.error('Please select an image file')
+      return
+    }
     setSaving(true)
-    setError('')
 
-    const res = await fetch('/api/documents', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: form.title,
-        type: form.type,
-        fileUrl: fileBase64,   // store base64 in fileUrl for now
-        mimeType: fileMime,
-      }),
-    })
+    try {
+      const res = await fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: form.title,
+          type: form.type,
+          fileUrl: fileBase64,
+          mimeType: fileMime,
+        }),
+      })
 
-    const data = await res.json()
-    if (!res.ok) { setError(data.error || 'Failed'); setSaving(false); return }
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to upload document')
+        return
+      }
 
-    setShowForm(false)
-    setForm({ title: '', type: 'LAB_REPORT' })
-    setFileBase64('')
-    setFilePreview('')
-    setFileName('')
-    await load()
-    setSaving(false)
+      setShowForm(false)
+      setForm({ title: '', type: 'LAB_REPORT' })
+      setFileBase64('')
+      setFilePreview('')
+      await load()
+      toast.success('Document uploaded successfully')
+    } catch (error) {
+      toast.error('Something went wrong. Please try again.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function handleSummarise(doc: Document) {
     if (!doc.fileUrl) {
-      alert('No image data found for this document.')
+      toast.error('No image data found for this document.')
       return
     }
     setSummarising(doc.id)
 
-    const res = await fetch('/api/ai/summarise', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        documentId: doc.id,
-        imageBase64: doc.fileUrl,
-        mimeType: doc.mimeType || 'image/jpeg',
-      }),
-    })
+    try {
+      const res = await fetch('/api/ai/summarise', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          documentId: doc.id,
+          imageBase64: doc.fileUrl,
+          mimeType: doc.mimeType || 'image/jpeg',
+        }),
+      })
 
-    const data = await res.json()
-    if (res.ok) {
-      setDocuments(d => d.map(x => x.id === doc.id ? { ...x, summary: data.summary } : x))
-      setViewing({ ...doc, summary: data.summary })
-    } else {
-      alert(data.error || 'Failed to summarise')
+      const data = await res.json()
+      if (res.ok) {
+        setDocuments(d => d.map(x => x.id === doc.id ? { ...x, summary: data.summary } : x))
+        setViewing({ ...doc, summary: data.summary })
+        toast.success('AI summary generated')
+      } else {
+        toast.error(data.error || 'Failed to generate summary')
+      }
+    } catch (error) {
+      toast.error('Failed to generate AI summary')
+    } finally {
+      setSummarising(null)
     }
-    setSummarising(null)
   }
 
   async function handleDelete(id: string) {
     if (!confirm('Delete this document?')) return
     setDeleting(id)
-    await fetch(`/api/documents/${id}`, { method: 'DELETE' })
-    setDocuments(d => d.filter(x => x.id !== id))
-    setDeleting(null)
+
+    try {
+      const res = await fetch(`/api/documents/${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Failed to delete')
+
+      setDocuments(d => d.filter(x => x.id !== id))
+      toast.success('Document deleted')
+    } catch (error) {
+      toast.error('Failed to delete document')
+    } finally {
+      setDeleting(null)
+    }
   }
 
   return (
-    <div className="px-8 py-8 max-w-4xl">
-      <div className="flex items-center justify-between mb-6">
+    <div className="px-4 sm:px-8 py-6 sm:py-8 max-w-4xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-stone-900">Documents</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold text-stone-900">Documents</h1>
           <p className="text-stone-500 text-sm mt-1">{documents.length} document{documents.length !== 1 ? 's' : ''}</p>
         </div>
         <button
-          onClick={() => { setShowForm(true); setError('') }}
-          className="bg-emerald-600 text-white text-sm px-4 py-2.5 rounded-lg hover:bg-emerald-700 transition-colors font-medium"
+          onClick={() => setShowForm(true)}
+          className="bg-emerald-600 text-white text-sm px-4 py-2.5 rounded-lg hover:bg-emerald-700 transition-colors font-medium w-full sm:w-auto"
         >
           + Upload Document
         </button>
       </div>
 
       {/* AI banner */}
-      <div className="mb-6 bg-gradient-to-r from-violet-50 to-blue-50 border border-violet-100 rounded-2xl p-4 flex items-start gap-3">
+      <div className="mb-6 bg-gradient-to-r from-violet-50 to-blue-50 border border-violet-100 rounded-xl sm:rounded-2xl p-4 flex items-start gap-3">
         <span className="text-2xl shrink-0">🤖</span>
         <div>
           <p className="text-sm font-medium text-stone-900">AI Lab Report Summariser</p>
           <p className="text-xs text-stone-500 mt-0.5">
-            Upload a photo or scan of your lab report (JPG, PNG, PDF) and click "AI Summary" — Gemini AI will read the image and explain your results in plain English.
+            Upload a photo or scan of your lab report (JPG, PNG, PDF) and click &quot;AI Summary&quot; — Gemini AI will read the image and explain your results in plain English.
           </p>
         </div>
       </div>
@@ -184,7 +206,7 @@ export default function DocumentsPage() {
       ) : (
         <div className="grid sm:grid-cols-2 gap-3">
           {documents.map(doc => (
-            <div key={doc.id} className="bg-white border border-stone-200 rounded-2xl p-5 hover:border-stone-300 transition-all">
+            <div key={doc.id} className="bg-white border border-stone-200 rounded-xl sm:rounded-2xl p-4 sm:p-5 hover:border-stone-300 transition-all">
               <div className="flex items-start gap-3 mb-3">
                 <span className="text-2xl shrink-0">{TYPE_ICONS[doc.type]}</span>
                 <div className="flex-1 min-w-0">
@@ -195,7 +217,6 @@ export default function DocumentsPage() {
                 </div>
               </div>
 
-              {/* Image preview thumbnail */}
               {doc.fileUrl && doc.fileUrl.length > 100 && (
                 <div className="mb-3 rounded-xl overflow-hidden border border-stone-100 h-24 bg-stone-50">
                   <img
@@ -219,13 +240,13 @@ export default function DocumentsPage() {
                 </div>
               )}
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <button
                   onClick={() => handleSummarise(doc)}
                   disabled={summarising === doc.id}
-                  className="flex-1 text-xs bg-violet-50 text-violet-700 border border-violet-200 py-1.5 rounded-lg hover:bg-violet-100 transition-colors disabled:opacity-50 font-medium"
+                  className="flex-1 text-xs bg-violet-50 text-violet-700 border border-violet-200 py-1.5 rounded-lg hover:bg-violet-100 transition-colors disabled:opacity-50 font-medium min-w-0"
                 >
-                  {summarising === doc.id ? '⏳ Analysing image...' : doc.summary ? '🔄 Re-summarise' : '🤖 AI Summary'}
+                  {summarising === doc.id ? '⏳ Analysing...' : doc.summary ? '🔄 Re-summarise' : '🤖 AI Summary'}
                 </button>
                 <button
                   onClick={() => setViewing(doc)}
@@ -249,16 +270,12 @@ export default function DocumentsPage() {
       {/* Upload modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl">
-            <div className="flex items-center justify-between p-6 border-b border-stone-100">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-stone-100 shrink-0">
               <h2 className="font-semibold text-stone-900">Upload Document</h2>
               <button onClick={() => setShowForm(false)} className="text-stone-400 hover:text-stone-600 text-xl">×</button>
             </div>
-            <form onSubmit={handleSave} className="p-6 space-y-4">
-              {error && (
-                <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg border border-red-200">{error}</div>
-              )}
-
+            <form onSubmit={handleSave} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
               <div>
                 <label className="block text-sm font-medium text-stone-700 mb-1.5">Document Title *</label>
                 <input
@@ -283,7 +300,7 @@ export default function DocumentsPage() {
 
               <div>
                 <label className="block text-sm font-medium text-stone-700 mb-1.5">
-                  Upload Image * <span className="text-stone-400 font-normal">(JPG, PNG — photo of your report)</span>
+                  Upload Image * <span className="text-stone-400 font-normal">(JPG, PNG)</span>
                 </label>
                 <div
                   onClick={() => fileRef.current?.click()}
@@ -336,17 +353,16 @@ export default function DocumentsPage() {
       {viewing && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-2xl shadow-xl max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between p-6 border-b border-stone-100 shrink-0">
-              <div>
-                <h2 className="font-semibold text-stone-900">{viewing.title}</h2>
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-stone-100 shrink-0">
+              <div className="min-w-0">
+                <h2 className="font-semibold text-stone-900 truncate">{viewing.title}</h2>
                 <p className="text-xs text-stone-400 mt-0.5">
                   {DOC_TYPES.find(t => t.value === viewing.type)?.label}
                 </p>
               </div>
-              <button onClick={() => setViewing(null)} className="text-stone-400 hover:text-stone-600 text-xl">×</button>
+              <button onClick={() => setViewing(null)} className="text-stone-400 hover:text-stone-600 text-xl shrink-0 ml-4">×</button>
             </div>
-            <div className="p-6 overflow-y-auto flex-1 space-y-4">
-              {/* Image preview */}
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4">
               {viewing.fileUrl && viewing.fileUrl.length > 100 && (
                 <div>
                   <h3 className="text-sm font-medium text-stone-700 mb-2">Document Image</h3>
@@ -358,7 +374,6 @@ export default function DocumentsPage() {
                 </div>
               )}
 
-              {/* AI Summary */}
               {viewing.summary ? (
                 <div>
                   <h3 className="text-sm font-semibold text-violet-700 mb-3 flex items-center gap-2">

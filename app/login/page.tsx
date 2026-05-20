@@ -1,38 +1,41 @@
 'use client'
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { toast } from 'sonner'
 
 export default function LoginPage() {
-  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    setError('')
 
-    const result = await signIn('credentials', {
-      email,
-      password,
-      redirect: false,
-    })
+    try {
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+      })
 
-    if (result?.error) {
-      setError('Invalid email or password')
+      if (result?.error) {
+        toast.error('Invalid email or password')
+      } else {
+        toast.success('Welcome back!')
+        window.location.href = '/dashboard'
+      }
+    } catch (error) {
+      toast.error('Something went wrong. Please try again.')
+    } finally {
       setLoading(false)
-    } else {
-      window.location.href = '/dashboard'
     }
   }
 
   return (
     <div className="min-h-screen bg-stone-50 flex flex-col">
-      <nav className="flex items-center px-8 py-5 border-b border-stone-200 bg-white">
+      <nav className="flex items-center px-4 sm:px-8 py-5 border-b border-stone-200 bg-white">
         <Link href="/" className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center">
             <span className="text-white text-sm font-semibold">M</span>
@@ -41,18 +44,12 @@ export default function LoginPage() {
         </Link>
       </nav>
 
-      <div className="flex-1 flex items-center justify-center px-6 py-12">
+      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 py-12">
         <div className="w-full max-w-sm">
           <h1 className="text-2xl font-semibold text-stone-900 mb-2">Welcome back</h1>
           <p className="text-stone-500 text-sm mb-8">Sign in to access your health vault</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
-                {error}
-              </div>
-            )}
-
             <div>
               <label className="block text-sm font-medium text-stone-700 mb-1.5">Email</label>
               <input

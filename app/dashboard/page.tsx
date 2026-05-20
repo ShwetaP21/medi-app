@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { formatDate, formatDateTime } from '@/lib/utils'
 import Link from 'next/link'
+import { toast } from 'sonner'
 
 interface DashboardData {
   stats: {
@@ -30,13 +31,15 @@ export default function DashboardPage() {
     async function load() {
       try {
         const res = await fetch('/api/dashboard')
-        if (!res.ok) throw new Error('Failed')
+        if (!res.ok) throw new Error('Failed to load dashboard')
         const json = await res.json()
         setData(json)
-      } catch (e) {
+      } catch (error) {
         if (retries > 0) {
           retries--
-          setTimeout(load, 1000) // retry after 1s
+          setTimeout(load, 1000)
+        } else {
+          toast.error('Failed to load dashboard data')
         }
       } finally {
         setLoading(false)
@@ -59,20 +62,20 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="px-8 py-8 max-w-5xl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-stone-900">Dashboard</h1>
+    <div className="px-4 sm:px-8 py-6 sm:py-8 max-w-5xl">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-semibold text-stone-900">Dashboard</h1>
         <p className="text-stone-500 text-sm mt-1">Your health at a glance</p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
         {stats.map((s) => (
-          <Link key={s.label} href={s.href} className="bg-white border border-stone-200 rounded-2xl p-5 hover:border-stone-300 hover:shadow-sm transition-all group">
-            <div className={`inline-flex items-center justify-center w-10 h-10 rounded-xl ${s.color} mb-3`}>
-              <span className="text-lg">{s.icon}</span>
+          <Link key={s.label} href={s.href} className="bg-white border border-stone-200 rounded-xl sm:rounded-2xl p-4 sm:p-5 hover:border-stone-300 hover:shadow-sm transition-all group">
+            <div className={`inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl ${s.color} mb-2 sm:mb-3`}>
+              <span className="text-base sm:text-lg">{s.icon}</span>
             </div>
-            <div className="text-2xl font-semibold text-stone-900 mb-0.5">
+            <div className="text-xl sm:text-2xl font-semibold text-stone-900 mb-0.5">
               {loading ? <span className="text-stone-300">—</span> : s.value}
             </div>
             <div className="text-xs text-stone-500">{s.label}</div>
@@ -80,9 +83,9 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Next appointment */}
-        <div className="bg-white border border-stone-200 rounded-2xl p-6">
+        <div className="bg-white border border-stone-200 rounded-xl sm:rounded-2xl p-4 sm:p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-medium text-stone-900 text-sm">Next appointment</h2>
             <Link href="/dashboard/appointments" className="text-xs text-emerald-600 hover:underline">View all →</Link>
@@ -109,7 +112,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Recent records */}
-        <div className="bg-white border border-stone-200 rounded-2xl p-6">
+        <div className="bg-white border border-stone-200 rounded-xl sm:rounded-2xl p-4 sm:p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-medium text-stone-900 text-sm">Recent health records</h2>
             <Link href="/dashboard/records" className="text-xs text-emerald-600 hover:underline">View all →</Link>
@@ -122,8 +125,8 @@ export default function DashboardPage() {
             <div className="space-y-2">
               {data.recentRecords.map((r: any) => (
                 <div key={r.id} className="flex items-center justify-between py-2 border-b border-stone-50 last:border-0">
-                  <div>
-                    <p className="text-sm text-stone-800 font-medium">{r.title}</p>
+                  <div className="min-w-0">
+                    <p className="text-sm text-stone-800 font-medium truncate">{r.title}</p>
                     <p className="text-xs text-stone-400">{recordTypeLabel[r.type]} · {formatDate(r.visitDate)}</p>
                   </div>
                 </div>
@@ -151,7 +154,7 @@ export default function DashboardPage() {
             <Link
               key={a.label}
               href={a.href}
-              className="bg-white border border-stone-200 text-stone-700 text-xs px-4 py-2.5 rounded-lg hover:border-emerald-300 hover:text-emerald-700 hover:bg-emerald-50 transition-all"
+              className="bg-white border border-stone-200 text-stone-700 text-xs px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg hover:border-emerald-300 hover:text-emerald-700 hover:bg-emerald-50 transition-all"
             >
               + {a.label}
             </Link>

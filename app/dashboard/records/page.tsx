@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { formatDate } from '@/lib/utils'
+import { toast } from 'sonner'
 
 type RecordType = 'VISIT' | 'DIAGNOSIS' | 'PROCEDURE' | 'VACCINATION' | 'ALLERGY' | 'LAB_RESULT' | 'OTHER'
 
@@ -44,15 +45,20 @@ export default function RecordsPage() {
   const [editing, setEditing] = useState<HealthRecord | null>(null)
   const [form, setForm] = useState(empty)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
   const [deleting, setDeleting] = useState<string | null>(null)
   const [search, setSearch] = useState('')
 
   async function load() {
-    const res = await fetch('/api/health-records')
-    const data = await res.json()
-    setRecords(data)
-    setLoading(false)
+    try {
+      const res = await fetch('/api/health-records')
+      if (!res.ok) throw new Error('Failed to load records')
+      const data = await res.json()
+      setRecords(data)
+    } catch (error) {
+      toast.error('Failed to load health records')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [])
@@ -60,7 +66,6 @@ export default function RecordsPage() {
   function openNew() {
     setEditing(null)
     setForm(empty)
-    setError('')
     setShowForm(true)
   }
 
@@ -74,38 +79,54 @@ export default function RecordsPage() {
       doctorName: r.doctorName || '',
       visitDate: r.visitDate.split('T')[0],
     })
-    setError('')
     setShowForm(true)
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
-    setError('')
 
-    const url = editing ? `/api/health-records/${editing.id}` : '/api/health-records'
-    const method = editing ? 'PUT' : 'POST'
+    try {
+      const url = editing ? `/api/health-records/${editing.id}` : '/api/health-records'
+      const method = editing ? 'PUT' : 'POST'
 
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
-    })
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
 
-    const data = await res.json()
-    if (!res.ok) { setError(data.error || 'Failed'); setSaving(false); return }
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to save record')
+        return
+      }
 
-    setShowForm(false)
-    await load()
-    setSaving(false)
+      setShowForm(false)
+      await load()
+      toast.success(editing ? 'Record updated' : 'Record added')
+    } catch (error) {
+      toast.error('Something went wrong. Please try again.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function handleDelete(id: string) {
     if (!confirm('Delete this record?')) return
     setDeleting(id)
-    await fetch(`/api/health-records/${id}`, { method: 'DELETE' })
-    setRecords((r) => r.filter((x) => x.id !== id))
-    setDeleting(null)
+
+    try {
+      const res = await fetch(`/api/health-records/${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Failed to delete')
+
+      setRecords((r) => r.filter((x) => x.id !== id))
+      toast.success('Record deleted')
+    } catch (error) {
+      toast.error('Failed to delete record')
+    } finally {
+      setDeleting(null)
+    }
   }
 
   const filtered = records.filter(
@@ -116,16 +137,16 @@ export default function RecordsPage() {
   )
 
   return (
-    <div className="px-8 py-8 max-w-4xl">
+    <div className="px-4 sm:px-8 py-6 sm:py-8 max-w-4xl">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-stone-900">Health Records</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold text-stone-900">Health Records</h1>
           <p className="text-stone-500 text-sm mt-1">{records.length} record{records.length !== 1 ? 's' : ''}</p>
         </div>
         <button
           onClick={openNew}
-          className="bg-emerald-600 text-white text-sm px-4 py-2.5 rounded-lg hover:bg-emerald-700 transition-colors font-medium flex items-center gap-2"
+          className="bg-emerald-600 text-white text-sm px-4 py-2.5 rounded-lg hover:bg-emerald-700 transition-colors font-medium flex items-center justify-center gap-2 w-full sm:w-auto"
         >
           + Add Record
         </button>
@@ -138,7 +159,7 @@ export default function RecordsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search records..."
-          className="w-full max-w-sm px-3.5 py-2.5 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+          className="w-full sm:max-w-sm px-3.5 py-2.5 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
         />
       </div>
 
@@ -156,8 +177,8 @@ export default function RecordsPage() {
       ) : (
         <div className="space-y-3">
           {filtered.map((r) => (
-            <div key={r.id} className="bg-white border border-stone-200 rounded-2xl p-5 hover:border-stone-300 transition-all">
-              <div className="flex items-start justify-between gap-4">
+            <div key={r.id} className="bg-white border border-stone-200 rounded-xl sm:rounded-2xl p-4 sm:p-5 hover:border-stone-300 transition-all">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                     <h3 className="font-medium text-stone-900">{r.title}</h3>
@@ -166,11 +187,12 @@ export default function RecordsPage() {
                     </span>
                   </div>
                   <p className="text-sm text-stone-500 line-clamp-2">{r.description}</p>
-                  <div className="flex items-center gap-4 mt-2 text-xs text-stone-400">
+                  <div className="flex items-center gap-3 sm:gap-4 mt-2 text-xs text-stone-400 flex-wrap">
                     <span>📅 {formatDate(r.visitDate)}</span>
                     {r.doctorName && <span>👨‍⚕️ {r.doctorName}</span>}
-                    {r.diagnosis && <span>🔍 {r.diagnosis}</span>}
+                    {r.diagnosis && <span className="hidden sm:inline">🔍 {r.diagnosis}</span>}
                   </div>
+                  {r.diagnosis && <p className="text-xs text-stone-400 mt-1 sm:hidden">🔍 {r.diagnosis}</p>}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
@@ -196,14 +218,12 @@ export default function RecordsPage() {
       {/* Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl">
-            <div className="flex items-center justify-between p-6 border-b border-stone-100">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-stone-100 shrink-0">
               <h2 className="font-semibold text-stone-900">{editing ? 'Edit Record' : 'New Health Record'}</h2>
               <button onClick={() => setShowForm(false)} className="text-stone-400 hover:text-stone-600 text-xl leading-none">×</button>
             </div>
-            <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-              {error && <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg border border-red-200">{error}</div>}
-
+            <form onSubmit={handleSave} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
               <div>
                 <label className="block text-sm font-medium text-stone-700 mb-1.5">Title *</label>
                 <input
