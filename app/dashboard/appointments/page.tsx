@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { formatDateTime } from '@/lib/utils'
+import { toast } from 'sonner'
 
 type Status = 'UPCOMING' | 'COMPLETED' | 'CANCELLED' | 'RESCHEDULED'
 
@@ -85,6 +86,7 @@ export default function AppointmentsPage() {
 
     setShowForm(false)
     await load()
+    toast.success('Saved successfully!') 
     setSaving(false)
   }
 

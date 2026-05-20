@@ -12,10 +12,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { documentId, text } = await req.json()
+    const { documentId, imageBase64, mimeType } = await req.json()
 
-    if (!documentId || !text) {
-      return NextResponse.json({ error: 'documentId and text are required' }, { status: 400 })
+    if (!documentId || !imageBase64) {
+      return NextResponse.json({ error: 'documentId and imageBase64 are required' }, { status: 400 })
     }
 
     const document = await prisma.document.findFirst({
@@ -28,22 +28,28 @@ export async function POST(req: NextRequest) {
 
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
 
-    const prompt = `You are a helpful medical assistant. A patient has uploaded a medical document and needs it explained in simple, plain language.
+    const prompt = `You are a helpful medical assistant. A patient has uploaded a medical lab report image.
 
-Please analyze the following medical document text and provide:
+Please analyze this lab report and provide:
 1. A brief 2-3 sentence overall summary
-2. Key findings or values (if it's a lab report, highlight any abnormal values)
+2. Key findings — list each test, its value, and whether it is NORMAL, LOW, or HIGH compared to the reference range
 3. What the patient should know or follow up on
-4. Any important warnings (e.g., critically abnormal values)
+4. Any important warnings for critically abnormal values
 
-Use simple language a non-medical person can understand. Be compassionate and avoid causing unnecessary alarm. Always recommend the patient discuss results with their doctor.
+Format it clearly with sections. Use simple language a non-medical person can understand. Always recommend consulting a doctor.
 
-IMPORTANT: This is for informational purposes only and is NOT medical advice.
+IMPORTANT: This is for informational purposes only and is NOT medical advice.`
 
-Document text:
-${text.slice(0, 3000)}`
+    const result = await model.generateContent([
+      prompt,
+      {
+        inlineData: {
+          mimeType: mimeType || 'image/jpeg',
+          data: imageBase64,
+        },
+      },
+    ])
 
-    const result = await model.generateContent(prompt)
     const summary = result.response.text()
 
     await prisma.document.update({
@@ -54,6 +60,9 @@ ${text.slice(0, 3000)}`
     return NextResponse.json({ summary })
   } catch (error: any) {
     console.error('Gemini AI error:', error)
-    return NextResponse.json({ error: 'Failed to generate summary. Check your GEMINI_API_KEY.' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to generate summary. Check your GEMINI_API_KEY.' },
+      { status: 500 }
+    )
   }
 }
