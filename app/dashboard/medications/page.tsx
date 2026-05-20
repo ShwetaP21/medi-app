@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { formatDate } from '@/lib/utils'
+import { toast } from 'sonner'
 
 interface Medication {
   id: string
@@ -29,14 +30,19 @@ export default function MedicationsPage() {
   const [editing, setEditing] = useState<Medication | null>(null)
   const [form, setForm] = useState(empty)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
   const [showActive, setShowActive] = useState<'active' | 'all'>('active')
 
   async function load() {
-    const res = await fetch('/api/medications')
-    const data = await res.json()
-    setMedications(data)
-    setLoading(false)
+    try {
+      const res = await fetch('/api/medications')
+      if (!res.ok) throw new Error('Failed to load medications')
+      const data = await res.json()
+      setMedications(data)
+    } catch (error) {
+      toast.error('Failed to load medications')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [])
@@ -44,7 +50,6 @@ export default function MedicationsPage() {
   function openNew() {
     setEditing(null)
     setForm(empty)
-    setError('')
     setShowForm(true)
   }
 
@@ -59,59 +64,82 @@ export default function MedicationsPage() {
       prescribedBy: m.prescribedBy || '',
       notes: m.notes || '',
     })
-    setError('')
     setShowForm(true)
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
-    setError('')
 
-    const url = editing ? `/api/medications/${editing.id}` : '/api/medications'
-    const method = editing ? 'PUT' : 'POST'
+    try {
+      const url = editing ? `/api/medications/${editing.id}` : '/api/medications'
+      const method = editing ? 'PUT' : 'POST'
 
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
-    })
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
 
-    const data = await res.json()
-    if (!res.ok) { setError(data.error || 'Failed'); setSaving(false); return }
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to save medication')
+        return
+      }
 
-    setShowForm(false)
-    await load()
-    setSaving(false)
+      setShowForm(false)
+      await load()
+      toast.success(editing ? 'Medication updated' : 'Medication added')
+    } catch (error) {
+      toast.error('Something went wrong. Please try again.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function toggleActive(id: string, isActive: boolean) {
-    await fetch(`/api/medications/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ isActive: !isActive }),
-    })
-    setMedications(m => m.map(x => x.id === id ? { ...x, isActive: !isActive } : x))
+    try {
+      const res = await fetch(`/api/medications/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !isActive }),
+      })
+
+      if (!res.ok) throw new Error('Failed to update status')
+
+      setMedications(m => m.map(x => x.id === id ? { ...x, isActive: !isActive } : x))
+      toast.success(`Medication marked as ${!isActive ? 'active' : 'inactive'}`)
+    } catch (error) {
+      toast.error('Failed to update medication status')
+    }
   }
 
   async function handleDelete(id: string) {
     if (!confirm('Delete this medication?')) return
-    await fetch(`/api/medications/${id}`, { method: 'DELETE' })
-    setMedications(m => m.filter(x => x.id !== id))
+
+    try {
+      const res = await fetch(`/api/medications/${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Failed to delete')
+
+      setMedications(m => m.filter(x => x.id !== id))
+      toast.success('Medication deleted')
+    } catch (error) {
+      toast.error('Failed to delete medication')
+    }
   }
 
   const filtered = showActive === 'active' ? medications.filter(m => m.isActive) : medications
 
   return (
-    <div className="px-8 py-8 max-w-4xl">
-      <div className="flex items-center justify-between mb-6">
+    <div className="px-4 sm:px-8 py-6 sm:py-8 max-w-4xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-stone-900">Medications</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold text-stone-900">Medications</h1>
           <p className="text-stone-500 text-sm mt-1">
             {medications.filter(m => m.isActive).length} active · {medications.length} total
           </p>
         </div>
-        <button onClick={openNew} className="bg-emerald-600 text-white text-sm px-4 py-2.5 rounded-lg hover:bg-emerald-700 transition-colors font-medium">
+        <button onClick={openNew} className="bg-emerald-600 text-white text-sm px-4 py-2.5 rounded-lg hover:bg-emerald-700 transition-colors font-medium w-full sm:w-auto">
           + Add Medication
         </button>
       </div>
@@ -141,10 +169,10 @@ export default function MedicationsPage() {
       ) : (
         <div className="grid sm:grid-cols-2 gap-3">
           {filtered.map(m => (
-            <div key={m.id} className={`bg-white border rounded-2xl p-5 transition-all ${m.isActive ? 'border-stone-200 hover:border-stone-300' : 'border-stone-100 opacity-60'}`}>
+            <div key={m.id} className={`bg-white border rounded-xl sm:rounded-2xl p-4 sm:p-5 transition-all ${m.isActive ? 'border-stone-200 hover:border-stone-300' : 'border-stone-100 opacity-60'}`}>
               <div className="flex items-start justify-between gap-2 mb-3">
-                <div>
-                  <h3 className="font-semibold text-stone-900">{m.name}</h3>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-stone-900 truncate">{m.name}</h3>
                   <p className="text-sm text-stone-500 mt-0.5">{m.dosage} · {m.frequency}</p>
                 </div>
                 <span className={`shrink-0 text-xs px-2 py-1 rounded-full font-medium ${m.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-stone-100 text-stone-500'}`}>
@@ -155,13 +183,13 @@ export default function MedicationsPage() {
               <div className="text-xs text-stone-400 space-y-1 mb-4">
                 <div>Started: {formatDate(m.startDate)}{m.endDate && ` · Until: ${formatDate(m.endDate)}`}</div>
                 {m.prescribedBy && <div>Prescribed by: {m.prescribedBy}</div>}
-                {m.notes && <div className="italic">"{m.notes}"</div>}
+                {m.notes && <div className="italic">&quot;{m.notes}&quot;</div>}
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <button
                   onClick={() => toggleActive(m.id, m.isActive)}
-                  className="flex-1 text-xs border border-stone-200 text-stone-600 py-1.5 rounded-lg hover:bg-stone-50 transition-colors"
+                  className="flex-1 text-xs border border-stone-200 text-stone-600 py-1.5 rounded-lg hover:bg-stone-50 transition-colors min-w-0"
                 >
                   Mark {m.isActive ? 'inactive' : 'active'}
                 </button>
@@ -175,14 +203,12 @@ export default function MedicationsPage() {
 
       {showForm && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl">
-            <div className="flex items-center justify-between p-6 border-b border-stone-100">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-stone-100 shrink-0">
               <h2 className="font-semibold text-stone-900">{editing ? 'Edit Medication' : 'Add Medication'}</h2>
               <button onClick={() => setShowForm(false)} className="text-stone-400 hover:text-stone-600 text-xl">×</button>
             </div>
-            <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-              {error && <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg border border-red-200">{error}</div>}
-
+            <form onSubmit={handleSave} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
               <div>
                 <label className="block text-sm font-medium text-stone-700 mb-1.5">Medication Name *</label>
                 <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required

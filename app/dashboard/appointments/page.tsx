@@ -33,14 +33,19 @@ export default function AppointmentsPage() {
   const [editing, setEditing] = useState<Appointment | null>(null)
   const [form, setForm] = useState(empty)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
   const [filter, setFilter] = useState<'ALL' | Status>('ALL')
 
   async function load() {
-    const res = await fetch('/api/appointments')
-    const data = await res.json()
-    setAppointments(data)
-    setLoading(false)
+    try {
+      const res = await fetch('/api/appointments')
+      if (!res.ok) throw new Error('Failed to load appointments')
+      const data = await res.json()
+      setAppointments(data)
+    } catch (error) {
+      toast.error('Failed to load appointments')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [])
@@ -48,7 +53,6 @@ export default function AppointmentsPage() {
   function openNew() {
     setEditing(null)
     setForm(empty)
-    setError('')
     setShowForm(true)
   }
 
@@ -63,69 +67,91 @@ export default function AppointmentsPage() {
       duration: a.duration,
       notes: a.notes || '',
     })
-    setError('')
     setShowForm(true)
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
-    setError('')
 
-    const url = editing ? `/api/appointments/${editing.id}` : '/api/appointments'
-    const method = editing ? 'PUT' : 'POST'
+    try {
+      const url = editing ? `/api/appointments/${editing.id}` : '/api/appointments'
+      const method = editing ? 'PUT' : 'POST'
 
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, duration: Number(form.duration) }),
-    })
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...form, duration: Number(form.duration) }),
+      })
 
-    const data = await res.json()
-    if (!res.ok) { setError(data.error || 'Failed'); setSaving(false); return }
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to save appointment')
+        return
+      }
 
-    setShowForm(false)
-    await load()
-    toast.success('Saved successfully!') 
-    setSaving(false)
+      setShowForm(false)
+      await load()
+      toast.success(editing ? 'Appointment updated' : 'Appointment booked')
+    } catch (error) {
+      toast.error('Something went wrong. Please try again.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function updateStatus(id: string, status: Status) {
-    await fetch(`/api/appointments/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    })
-    setAppointments(a => a.map(x => x.id === id ? { ...x, status } : x))
+    try {
+      const res = await fetch(`/api/appointments/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+
+      if (!res.ok) throw new Error('Failed to update status')
+
+      setAppointments(a => a.map(x => x.id === id ? { ...x, status } : x))
+      toast.success(`Appointment marked as ${status.toLowerCase()}`)
+    } catch (error) {
+      toast.error('Failed to update appointment status')
+    }
   }
 
   async function handleDelete(id: string) {
     if (!confirm('Delete this appointment?')) return
-    await fetch(`/api/appointments/${id}`, { method: 'DELETE' })
-    setAppointments(a => a.filter(x => x.id !== id))
+
+    try {
+      const res = await fetch(`/api/appointments/${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Failed to delete')
+
+      setAppointments(a => a.filter(x => x.id !== id))
+      toast.success('Appointment deleted')
+    } catch (error) {
+      toast.error('Failed to delete appointment')
+    }
   }
 
   const filtered = filter === 'ALL' ? appointments : appointments.filter(a => a.status === filter)
 
   return (
-    <div className="px-8 py-8 max-w-4xl">
-      <div className="flex items-center justify-between mb-6">
+    <div className="px-4 sm:px-8 py-6 sm:py-8 max-w-4xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-stone-900">Appointments</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold text-stone-900">Appointments</h1>
           <p className="text-stone-500 text-sm mt-1">{appointments.length} total</p>
         </div>
-        <button onClick={openNew} className="bg-emerald-600 text-white text-sm px-4 py-2.5 rounded-lg hover:bg-emerald-700 transition-colors font-medium">
+        <button onClick={openNew} className="bg-emerald-600 text-white text-sm px-4 py-2.5 rounded-lg hover:bg-emerald-700 transition-colors font-medium w-full sm:w-auto">
           + Book Appointment
         </button>
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-1 mb-4 bg-stone-100 p-1 rounded-xl w-fit">
+      <div className="flex gap-1 mb-4 bg-stone-100 p-1 rounded-xl w-full sm:w-fit overflow-x-auto">
         {(['ALL', 'UPCOMING', 'COMPLETED', 'CANCELLED'] as const).map(f => (
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap flex-1 sm:flex-none ${
               filter === f ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-700'
             }`}
           >
@@ -140,14 +166,14 @@ export default function AppointmentsPage() {
         <div className="text-center py-20 text-stone-400">
           <p className="text-4xl mb-3">📅</p>
           <p className="font-medium text-stone-600">No appointments</p>
-          <p className="text-sm mt-1">Click "Book Appointment" to schedule one</p>
+          <p className="text-sm mt-1">Click &quot;Book Appointment&quot; to schedule one</p>
         </div>
       ) : (
         <div className="space-y-3">
           {filtered.map(a => (
-            <div key={a.id} className="bg-white border border-stone-200 rounded-2xl p-5 hover:border-stone-300 transition-all">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
+            <div key={a.id} className="bg-white border border-stone-200 rounded-xl sm:rounded-2xl p-4 sm:p-5 hover:border-stone-300 transition-all">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
                     <h3 className="font-medium text-stone-900">{a.title}</h3>
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[a.status]}`}>
@@ -155,14 +181,15 @@ export default function AppointmentsPage() {
                     </span>
                   </div>
                   <p className="text-sm text-stone-500">Dr. {a.doctorName}{a.specialty && ` · ${a.specialty}`}</p>
-                  <div className="flex items-center gap-4 mt-2 text-xs text-stone-400 flex-wrap">
+                  <div className="flex items-center gap-3 sm:gap-4 mt-2 text-xs text-stone-400 flex-wrap">
                     <span>📅 {formatDateTime(a.appointmentDate)}</span>
                     <span>⏱ {a.duration} min</span>
-                    {a.location && <span>📍 {a.location}</span>}
+                    {a.location && <span className="hidden sm:inline">📍 {a.location}</span>}
                   </div>
-                  {a.notes && <p className="text-xs text-stone-400 mt-1.5 italic">"{a.notes}"</p>}
+                  {a.location && <p className="text-xs text-stone-400 mt-1 sm:hidden">📍 {a.location}</p>}
+                  {a.notes && <p className="text-xs text-stone-400 mt-1.5 italic">&quot;{a.notes}&quot;</p>}
                 </div>
-                <div className="flex flex-col gap-1.5 shrink-0">
+                <div className="flex sm:flex-col gap-2 sm:gap-1.5 shrink-0 flex-wrap">
                   {a.status === 'UPCOMING' && (
                     <>
                       <button onClick={() => updateStatus(a.id, 'COMPLETED')} className="text-xs text-emerald-600 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors">Complete</button>
@@ -181,14 +208,12 @@ export default function AppointmentsPage() {
       {/* Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl">
-            <div className="flex items-center justify-between p-6 border-b border-stone-100">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-stone-100 shrink-0">
               <h2 className="font-semibold text-stone-900">{editing ? 'Edit Appointment' : 'Book Appointment'}</h2>
               <button onClick={() => setShowForm(false)} className="text-stone-400 hover:text-stone-600 text-xl">×</button>
             </div>
-            <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-              {error && <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg border border-red-200">{error}</div>}
-
+            <form onSubmit={handleSave} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
               {[
                 { label: 'Title *', key: 'title', placeholder: 'e.g. General checkup' },
                 { label: 'Doctor Name *', key: 'doctorName', placeholder: 'Dr. Arjun Kumar' },
