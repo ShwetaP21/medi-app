@@ -67,4 +67,4 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
       - name: Build success
-        run: echo "✅ Build passed successfully"
+        run: echo " Build passed successfully"
