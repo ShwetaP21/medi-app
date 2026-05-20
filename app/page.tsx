@@ -73,12 +73,10 @@ export default async function HomePage() {
       <footer className="border-t border-stone-200 bg-white px-8 py-6 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-stone-500">
         <div>© 2025 MediVault. Built with Next.js, TypeScript & PostgreSQL.</div>
         <div className="flex items-center gap-4">
-          <span>Built by <a href="https://github.com/yourusername" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">Your Name</a></span>
+          <span>Built by <a href="https://github.com/yourusername" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">Shweta Pachpute</a></span>
           <span>·</span>
-          <a href="https://github.com/yourusername" target="_blank" rel="noopener noreferrer" className="hover:text-stone-900">GitHub</a>
-          <span>·</span>
-          <a href="https://linkedin.com/in/yourusername" target="_blank" rel="noopener noreferrer" className="hover:text-stone-900">LinkedIn</a>
-        </div>
+          <a href="https://github.com/ShwetaP21" target="_blank" rel="noopener noreferrer" className="hover:text-stone-900">GitHub</a>
+          </div>
       </footer>
     </main>
   )

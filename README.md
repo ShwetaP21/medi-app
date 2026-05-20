@@ -179,10 +179,8 @@ npm run db:studio    # Prisma Studio (visual DB browser)
 
 ## 👨‍💻 Author
 
-Built by **[Your Name]**
 
-- 🐙 GitHub: [github.com/yourusername](https://github.com/yourusername)
-- 💼 LinkedIn: [linkedin.com/in/yourusername](https://linkedin.com/in/yourusername)
+- 🐙 GitHub: [github.com/yourusername](https://github.com/ShwetaP21)
 
 ---
 

@@ -59,7 +59,7 @@ export function Sidebar({ user }: { user: { name?: string | null; email?: string
         </div>
         <button
           onClick={() => signOut({ callbackUrl: '/' })}
-          className="mt-1 w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-stone-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+          className="mt-1 w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-stone-500 hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer"
         >
           <span>↩</span>
           Sign out
