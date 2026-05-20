@@ -18,15 +18,17 @@ export function Sidebar({ user }: { user: { name?: string | null; email?: string
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  const SidebarContent = () => (
+  const SidebarContent = ({ showLogo = true }: { showLogo?: boolean }) => (
     <>
-      {/* Logo */}
-      <div className="flex items-center gap-2.5 px-6 py-5 border-b border-stone-100">
-        <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center shrink-0">
-          <span className="text-white text-sm font-semibold">M</span>
+      {/* Logo - only shown on desktop */}
+      {showLogo && (
+        <div className="flex items-center gap-2.5 px-6 py-5 border-b border-stone-100">
+          <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center shrink-0">
+            <span className="text-white text-sm font-semibold">M</span>
+          </div>
+          <span className="font-semibold text-stone-900">MediVault</span>
         </div>
-        <span className="font-semibold text-stone-900">MediVault</span>
-      </div>
+      )}
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-0.5">
@@ -84,11 +86,11 @@ export function Sidebar({ user }: { user: { name?: string | null; email?: string
           <span className="font-semibold text-stone-900">MediVault</span>
         </div>
         <button
-          onClick={() => setMobileOpen(!mobileOpen)}
+          onClick={() => setMobileOpen(true)}
           className="p-2 rounded-lg hover:bg-stone-100 transition-colors"
-          aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+          aria-label="Open menu"
         >
-          {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          <Menu className="w-6 h-6" />
         </button>
       </div>
 
@@ -102,18 +104,34 @@ export function Sidebar({ user }: { user: { name?: string | null; email?: string
 
       {/* Mobile sidebar */}
       <aside
-        className={`lg:hidden fixed top-16 left-0 bottom-0 w-72 bg-white border-r border-stone-200 z-50 transform transition-transform duration-300 ease-in-out ${
+        className={`lg:hidden fixed top-0 left-0 bottom-0 w-72 bg-white border-r border-stone-200 z-50 transform transition-transform duration-300 ease-in-out ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex flex-col h-full">
-          <SidebarContent />
+        {/* Mobile sidebar header with close button */}
+        <div className="flex items-center justify-between px-4 h-16 border-b border-stone-100">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center">
+              <span className="text-white text-sm font-semibold">M</span>
+            </div>
+            <span className="font-semibold text-stone-900">MediVault</span>
+          </div>
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="p-2 rounded-lg hover:bg-stone-100 transition-colors"
+            aria-label="Close menu"
+          >
+            <X className="w-5 h-5 text-stone-600" />
+          </button>
+        </div>
+        <div className="flex flex-col h-[calc(100%-4rem)] overflow-y-auto">
+          <SidebarContent showLogo={false} />
         </div>
       </aside>
 
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex w-60 min-h-screen bg-white border-r border-stone-200 flex-col sticky top-0">
-        <SidebarContent />
+        <SidebarContent showLogo={true} />
       </aside>
     </>
   )
