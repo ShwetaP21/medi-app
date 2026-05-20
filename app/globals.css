@@ -10,17 +10,6 @@
   --radius-3xl: 1.5rem;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-body {
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-}
-
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
