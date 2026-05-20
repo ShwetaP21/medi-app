@@ -14,22 +14,43 @@ interface DashboardData {
   nextAppointment: any
 }
 
+const defaultData: DashboardData = {
+  stats: { totalRecords: 0, upcomingAppointments: 0, activeMedications: 0, totalDocuments: 0 },
+  recentRecords: [],
+  nextAppointment: null,
+}
+
 export default function DashboardPage() {
-  const [data, setData] = useState<DashboardData | null>(null)
+  const [data, setData] = useState<DashboardData>(defaultData)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/dashboard')
-      .then((r) => r.json())
-      .then(setData)
-      .finally(() => setLoading(false))
+    let retries = 3
+
+    async function load() {
+      try {
+        const res = await fetch('/api/dashboard')
+        if (!res.ok) throw new Error('Failed')
+        const json = await res.json()
+        setData(json)
+      } catch (e) {
+        if (retries > 0) {
+          retries--
+          setTimeout(load, 1000) // retry after 1s
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    load()
   }, [])
 
   const stats = [
-    { label: 'Health Records', value: data?.stats.totalRecords ?? '—', icon: '🩺', href: '/dashboard/records', color: 'bg-blue-50 text-blue-700' },
-    { label: 'Upcoming Appts.', value: data?.stats.upcomingAppointments ?? '—', icon: '📅', href: '/dashboard/appointments', color: 'bg-violet-50 text-violet-700' },
-    { label: 'Active Medications', value: data?.stats.activeMedications ?? '—', icon: '💊', href: '/dashboard/medications', color: 'bg-amber-50 text-amber-700' },
-    { label: 'Documents', value: data?.stats.totalDocuments ?? '—', icon: '📄', href: '/dashboard/documents', color: 'bg-emerald-50 text-emerald-700' },
+    { label: 'Health Records', value: data.stats.totalRecords, icon: '🩺', href: '/dashboard/records', color: 'bg-blue-50 text-blue-700' },
+    { label: 'Upcoming Appts.', value: data.stats.upcomingAppointments, icon: '📅', href: '/dashboard/appointments', color: 'bg-violet-50 text-violet-700' },
+    { label: 'Active Medications', value: data.stats.activeMedications, icon: '💊', href: '/dashboard/medications', color: 'bg-amber-50 text-amber-700' },
+    { label: 'Documents', value: data.stats.totalDocuments, icon: '📄', href: '/dashboard/documents', color: 'bg-emerald-50 text-emerald-700' },
   ]
 
   const recordTypeLabel: Record<string, string> = {
@@ -68,7 +89,7 @@ export default function DashboardPage() {
           </div>
           {loading ? (
             <div className="h-16 bg-stone-100 rounded-lg animate-pulse" />
-          ) : data?.nextAppointment ? (
+          ) : data.nextAppointment ? (
             <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
               <p className="font-medium text-stone-900 text-sm">{data.nextAppointment.title}</p>
               <p className="text-xs text-stone-500 mt-1">Dr. {data.nextAppointment.doctorName}</p>
@@ -97,7 +118,7 @@ export default function DashboardPage() {
             <div className="space-y-2">
               {[1,2,3].map(i => <div key={i} className="h-10 bg-stone-100 rounded-lg animate-pulse" />)}
             </div>
-          ) : data?.recentRecords?.length ? (
+          ) : data.recentRecords?.length ? (
             <div className="space-y-2">
               {data.recentRecords.map((r: any) => (
                 <div key={r.id} className="flex items-center justify-between py-2 border-b border-stone-50 last:border-0">
