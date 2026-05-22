@@ -2,7 +2,11 @@
 
 > A secure, full-stack personal health records platform with AI-powered lab report summarisation.
 
-Built with **Next.js 16**, **TypeScript**, **PostgreSQL + Prisma**, **NextAuth.js v5**, and **OpenAI GPT-3.5**.
+Built with **Next.js 16**, **TypeScript**, **PostgreSQL + Prisma**, **NextAuth.js v5**, and **Grok**.
+
+## Live Demo
+
+- **URL**: [https://medi-app-two.vercel.app/](https://medi-app-two.vercel.app/)
 
 ---
 
@@ -61,8 +65,7 @@ DATABASE_URL="postgresql://user:password@host/medivault?sslmode=require"
 NEXTAUTH_SECRET="your-random-secret-here"
 NEXTAUTH_URL="http://localhost:3000"
 
-# Get from https://platform.openai.com/api-keys
-OPENAI_API_KEY="sk-..."
+GROQ_API_KEY="sk-..."
 ```
 
 ### 3. Database setup
