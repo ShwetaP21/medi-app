@@ -17,7 +17,7 @@ Built with **Next.js 16**, **TypeScript**, **PostgreSQL + Prisma**, **NextAuth.j
 - **📅 Appointments** — Book, reschedule, cancel appointments with status tracking (upcoming/completed/cancelled)
 - **💊 Medications** — Track active medications, dosage, frequency, toggle active/inactive
 - **📄 Documents** — Upload and manage lab reports, prescriptions, imaging scans
-- **🤖 AI Lab Summariser** — Upload a text lab report → get a plain-English AI summary via Grok
+- **🤖 AI Lab Summariser** — Upload a text lab report → get a plain-English AI summary via Grok AI
 - **📊 Dashboard** — At-a-glance stats, next appointment card, recent records
 - **🛡️ Security** — Middleware route protection, security headers, Zod validation, Prisma (no raw SQL)
 - **📱 Responsive** — Mobile, tablet, and desktop ready
