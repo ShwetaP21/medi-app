@@ -188,7 +188,7 @@ export default function DocumentsPage() {
         <div>
           <p className="text-sm font-medium text-stone-900">AI Lab Report Summariser</p>
           <p className="text-xs text-stone-500 mt-0.5">
-            Upload a photo or scan of your lab report (JPG, PNG, PDF) and click &quot;AI Summary&quot; — Gemini AI will read the image and explain your results in plain English.
+            Upload a photo or scan of your lab report (JPG, PNG, PDF) and click &quot;AI Summary&quot; — Grok AI will read the image and explain your results in plain English.
           </p>
         </div>
       </div>
