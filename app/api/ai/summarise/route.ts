@@ -12,10 +12,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { documentId, imageBase64, mimeType } = await req.json()
+    const { documentId, imageUrl } = await req.json()
 
-    if (!documentId || !imageBase64) {
-      return NextResponse.json({ error: 'documentId and imageBase64 are required' }, { status: 400 })
+    if (!documentId || !imageUrl) {
+      return NextResponse.json({ error: 'documentId and imageUrl are required' }, { status: 400 })
     }
 
     const document = await prisma.document.findFirst({
@@ -34,43 +34,79 @@ export async function POST(req: NextRequest) {
           content: [
             {
               type: 'image_url',
-              image_url: {
-                url: `data:${mimeType || 'image/jpeg'};base64,${imageBase64}`,
-              },
+              image_url: { url: imageUrl },
             },
             {
               type: 'text',
-              text: `You are a helpful medical assistant. A patient has uploaded a medical lab report image.
+              text: `You are a medical document analysis assistant.
 
-Please analyze this lab report and provide:
-1. A brief 2-3 sentence overall summary
-2. Key findings — list each test, its value, and whether it is NORMAL, LOW, or HIGH compared to the reference range shown
-3. What the patient should know or follow up on
-4. Any important warnings for critically abnormal values
+FIRST — determine if this image is a medical document (lab report, blood test, pathology report, prescription, discharge summary, diagnostic report, or similar). 
 
-Use simple language a non-medical person can understand. Be compassionate. Always recommend consulting a doctor.
+If it is NOT a medical document, respond with ONLY this exact JSON:
+{"isMedical": false, "message": "This does not appear to be a medical report. Please upload a lab report, blood test, prescription, or other medical document."}
 
-IMPORTANT: This is for informational purposes only and is NOT medical advice.`,
+If it IS a medical document, respond with ONLY this exact JSON (no markdown, no extra text):
+{
+  "isMedical": true,
+  "summary": "2-3 sentence overall summary of the report",
+  "findings": [
+    {"test": "test name", "value": "result value", "unit": "unit", "referenceRange": "normal range", "status": "NORMAL or LOW or HIGH or CRITICAL"}
+  ],
+  "patientAdvice": "What the patient should know in simple language",
+  "warnings": "Any critical values or urgent follow-ups needed, or null if none",
+  "disclaimer": "⚠️ Disclaimer that this is not medical advice and they should consult their doctor"
+}`,
             },
           ],
         },
       ],
       max_tokens: 1024,
-      temperature: 0.3,
+      temperature: 0.1,
     })
 
-    const summary = completion.choices[0]?.message?.content || 'Could not generate summary.'
+    const rawText = completion.choices[0]?.message?.content || ''
+
+    let parsed: any
+    try {
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) throw new Error('No JSON found')
+      parsed = JSON.parse(jsonMatch[0])
+    } catch {
+      return NextResponse.json(
+        { error: 'Could not parse AI response. Please try again.' },
+        { status: 500 }
+      )
+    }
+
+    if (!parsed.isMedical) {
+      return NextResponse.json(
+        { error: parsed.message, notMedical: true },
+        { status: 422 }
+      )
+    }
+
+    const formattedSummary = `${parsed.summary}
+
+KEY FINDINGS:
+${parsed.findings?.map((f: any) =>
+  `• ${f.test}: ${f.value} ${f.unit || ''} (Ref: ${f.referenceRange || 'N/A'}) — ${f.status}`
+).join('\n') || 'No structured findings available'}
+
+WHAT YOU SHOULD KNOW:
+${parsed.patientAdvice}
+
+${parsed.warnings ? `⚠️ IMPORTANT: ${parsed.warnings}\n\n` : ''}${parsed.disclaimer}`
 
     await prisma.document.update({
       where: { id: documentId },
-      data: { summary },
+      data: { summary: formattedSummary },
     })
 
-    return NextResponse.json({ summary })
+    return NextResponse.json({ summary: formattedSummary })
   } catch (error: any) {
     console.error('Groq AI error:', error)
     return NextResponse.json(
-      { error: 'Failed to generate summary. Check your GROQ_API_KEY.' },
+      { error: 'Failed to analyse document. Please try again.' },
       { status: 500 }
     )
   }
