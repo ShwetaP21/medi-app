@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
+import { createHealthRecord, deleteHealthRecord, updateHealthRecord } from '@/app/actions/records'
 
 type RecordType = 'VISIT' | 'DIAGNOSIS' | 'PROCEDURE' | 'VACCINATION' | 'ALLERGY' | 'LAB_RESULT' | 'OTHER'
 
@@ -87,21 +88,11 @@ export default function RecordsPage() {
     setSaving(true)
 
     try {
-      const url = editing ? `/api/health-records/${editing.id}` : '/api/health-records'
-      const method = editing ? 'PUT' : 'POST'
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-
-      const data = await res.json()
-      if (!res.ok) {
-        toast.error(data.error || 'Failed to save record')
-        return
+      if (editing) {
+        await updateHealthRecord(editing.id, form)
+      }else{
+        await createHealthRecord(form)
       }
-
       setShowForm(false)
       await load()
       toast.success(editing ? 'Record updated' : 'Record added')
@@ -117,9 +108,7 @@ export default function RecordsPage() {
     setDeleting(id)
 
     try {
-      const res = await fetch(`/api/health-records/${id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Failed to delete')
-
+      await deleteHealthRecord(id)
       setRecords((r) => r.filter((x) => x.id !== id))
       toast.success('Record deleted')
     } catch (error) {

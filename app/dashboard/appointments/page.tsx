@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { formatDateTime } from '@/lib/utils'
 import { toast } from 'sonner'
+import { updateAppointment, createAppointment,updateAppointmentStatus,deleteAppointment } from '@/app/actions/appointments'
 
 type Status = 'UPCOMING' | 'COMPLETED' | 'CANCELLED' | 'RESCHEDULED'
 
@@ -75,21 +76,12 @@ export default function AppointmentsPage() {
     setSaving(true)
 
     try {
-      const url = editing ? `/api/appointments/${editing.id}` : '/api/appointments'
-      const method = editing ? 'PUT' : 'POST'
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, duration: Number(form.duration) }),
-      })
-
-      const data = await res.json()
-      if (!res.ok) {
-        toast.error(data.error || 'Failed to save appointment')
-        return
-      }
-
+       if (editing) {
+      await updateAppointment(editing.id, { ...form, duration: Number(form.duration) })
+    } else {
+      await createAppointment({ ...form, duration: Number(form.duration) })
+    }
+    
       setShowForm(false)
       await load()
       toast.success(editing ? 'Appointment updated' : 'Appointment booked')
@@ -102,14 +94,7 @@ export default function AppointmentsPage() {
 
   async function updateStatus(id: string, status: Status) {
     try {
-      const res = await fetch(`/api/appointments/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      })
-
-      if (!res.ok) throw new Error('Failed to update status')
-
+       await updateAppointmentStatus(id, status)
       setAppointments(a => a.map(x => x.id === id ? { ...x, status } : x))
       toast.success(`Appointment marked as ${status.toLowerCase()}`)
     } catch (error) {
@@ -121,10 +106,7 @@ export default function AppointmentsPage() {
     if (!confirm('Delete this appointment?')) return
 
     try {
-      const res = await fetch(`/api/appointments/${id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Failed to delete')
-
-      setAppointments(a => a.filter(x => x.id !== id))
+      await deleteAppointment(id)
       toast.success('Appointment deleted')
     } catch (error) {
       toast.error('Failed to delete appointment')

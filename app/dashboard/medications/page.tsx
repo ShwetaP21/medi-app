@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
+import { createMedication, deleteMedication, toggleMedicationActive, updateMedication } from '@/app/actions/medications'
 
 interface Medication {
   id: string
@@ -72,20 +73,12 @@ export default function MedicationsPage() {
     setSaving(true)
 
     try {
-      const url = editing ? `/api/medications/${editing.id}` : '/api/medications'
-      const method = editing ? 'PUT' : 'POST'
 
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-
-      const data = await res.json()
-      if (!res.ok) {
-        toast.error(data.error || 'Failed to save medication')
-        return
-      }
+        if (editing) {
+            await updateMedication(editing.id, form)
+          } else {
+            await createMedication(form)
+          }
 
       setShowForm(false)
       await load()
@@ -99,14 +92,8 @@ export default function MedicationsPage() {
 
   async function toggleActive(id: string, isActive: boolean) {
     try {
-      const res = await fetch(`/api/medications/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive: !isActive }),
-      })
 
-      if (!res.ok) throw new Error('Failed to update status')
-
+        await toggleMedicationActive(id, isActive)
       setMedications(m => m.map(x => x.id === id ? { ...x, isActive: !isActive } : x))
       toast.success(`Medication marked as ${!isActive ? 'active' : 'inactive'}`)
     } catch (error) {
@@ -118,9 +105,7 @@ export default function MedicationsPage() {
     if (!confirm('Delete this medication?')) return
 
     try {
-      const res = await fetch(`/api/medications/${id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Failed to delete')
-
+      await deleteMedication(id)
       setMedications(m => m.filter(x => x.id !== id))
       toast.success('Medication deleted')
     } catch (error) {
